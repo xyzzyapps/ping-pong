@@ -65,6 +65,29 @@
   var started = false;
   var over = false;
   var pointerY = H / 2;
+  var audioCtx = null;
+
+  function unlockAudio() {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!audioCtx) audioCtx = new AC();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  }
+
+  function tone(freq, duration, gain, delay) {
+    if (!audioCtx) return;
+    var t = audioCtx.currentTime + (delay || 0);
+    var osc = audioCtx.createOscillator();
+    var amp = audioCtx.createGain();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(freq, t);
+    amp.gain.setValueAtTime(gain, t);
+    amp.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    osc.connect(amp);
+    amp.connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + duration);
+  }
 
   function resetBall(dir) {
     ballX = W / 2 - ballS / 2;
@@ -88,7 +111,13 @@
     ballVY = 0;
     ballX = W / 2 - ballS / 2;
     ballY = H / 2 - ballS / 2;
-    if (playerScore >= winScore || cpuScore >= winScore) over = true;
+    if (playerScore >= winScore || cpuScore >= winScore) {
+      over = true;
+      tone(140, 0.16, 0.08);
+      tone(90, 0.22, 0.08, 0.16);
+    } else {
+      tone(110, 0.12, 0.07);
+    }
   }
 
   function step() {
@@ -112,9 +141,11 @@
     if (ballY < 16) {
       ballY = 16;
       ballVY *= -1;
+      tone(520, 0.04, 0.05);
     } else if (ballY > H - 16 - ballS) {
       ballY = H - 16 - ballS;
       ballVY *= -1;
+      tone(520, 0.04, 0.05);
     }
 
     function bounce(paddleTop, goingLeft) {
@@ -123,6 +154,7 @@
       var next = Math.min(Math.abs(ballVX) * 1.05 + 0.08, maxSpeed);
       ballVX = (goingLeft ? -1 : 1) * next;
       ballVY = hit * 2.1;
+      tone(goingLeft ? 240 : 180, 0.06, 0.08);
     }
 
     var left = 36;
@@ -192,7 +224,11 @@
       playerScore = 0;
       cpuScore = 0;
     }
-    if (!started) serve(Math.random() < 0.5 ? -1 : 1);
+    if (!started) {
+      unlockAudio();
+      serve(Math.random() < 0.5 ? -1 : 1);
+      tone(330, 0.05, 0.05);
+    }
   });
   window.addEventListener("keydown", function (e) {
     if (e.key === "ArrowUp") pointerY -= 22;
@@ -203,7 +239,11 @@
         playerScore = 0;
         cpuScore = 0;
       }
-      if (!started) serve(-1);
+      if (!started) {
+        unlockAudio();
+        serve(-1);
+        tone(330, 0.05, 0.05);
+      }
     }
   });
 
