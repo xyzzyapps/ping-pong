@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Ping Pong</title>
+  <meta name="description" content="A one-file ping pong game you can play inside an X post." />
+
+  <!--
+    Hosted at https://xyzzyapps.github.io/ping-pong/
+    X reads these tags and, on desktop, loads the page in the timeline as a Player Card.
+    The domain usually has to pass the card validator at https://cards-dev.x.com/validator
+    before the embed shows up. Do not set X-Frame-Options or a CSP that blocks x.com.
+  -->
+  <meta name="twitter:card" content="player" />
+  <meta name="twitter:title" content="Ping Pong" />
+  <meta name="twitter:description" content="Move the left paddle. First to 7." />
+  <meta name="twitter:image" content="https://xyzzyapps.github.io/ping-pong/preview.png" />
+  <meta name="twitter:player" content="https://xyzzyapps.github.io/ping-pong/" />
+  <meta name="twitter:player:width" content="480" />
+  <meta name="twitter:player:height" content="480" />
+
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #10140f;
+      color: #d7f5c8;
+      font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+      overflow: hidden;
+      touch-action: none;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      cursor: none;
+    }
+  </style>
+</head>
+<body>
+<canvas id="c" width="480" height="480"></canvas>
+<script>
+(function () {
+  var canvas = document.getElementById("c");
+  var ctx = canvas.getContext("2d");
+  var W = 480;
+  var H = 480;
+
+  var paddleW = 12;
+  var paddleH = 78;
+  var ballR = 7;
+  var winScore = 7;
+
+  var playerY = (H - paddleH) / 2;
+  var cpuY = playerY;
+  var ballX = W / 2;
+  var ballY = H / 2;
+  var ballVX = 4.2;
+  var ballVY = 2.4;
+  var playerScore = 0;
+  var cpuScore = 0;
+  var started = false;
+  var over = false;
+  var pointerY = H / 2;
+
+  function resetBall(dir) {
+    ballX = W / 2;
+    ballY = H / 2;
+    var speed = 4.2 + Math.min(playerScore + cpuScore, 8) * 0.25;
+    ballVX = dir * speed;
+    ballVY = (Math.random() * 2 - 1) * 3.2;
+  }
+
+  function serve(dir) {
+    over = false;
+    started = true;
+    resetBall(dir);
+  }
+
+  function point(scorer) {
+    if (scorer === "player") playerScore += 1;
+    else cpuScore += 1;
+    started = false;
+    ballVX = 0;
+    ballVY = 0;
+    ballX = W / 2;
+    ballY = H / 2;
+    if (playerScore >= winScore || cpuScore >= winScore) over = true;
+  }
+
+  function step() {
+    if (!started || over) return;
+
+    var target = ballY - paddleH / 2;
+    cpuY += (target - cpuY) * 0.09;
+    if (cpuY < 8) cpuY = 8;
+    if (cpuY > H - paddleH - 8) cpuY = H - paddleH - 8;
+
+    playerY = pointerY - paddleH / 2;
+    if (playerY < 8) playerY = 8;
+    if (playerY > H - paddleH - 8) playerY = H - paddleH - 8;
+
+    ballX += ballVX;
+    ballY += ballVY;
+
+    if (ballY < ballR) {
+      ballY = ballR;
+      ballVY *= -1;
+    } else if (ballY > H - ballR) {
+      ballY = H - ballR;
+      ballVY *= -1;
+    }
+
+    var left = 28;
+    if (ballVX < 0 && ballX - ballR <= left + paddleW && ballX > left &&
+        ballY > playerY && ballY < playerY + paddleH) {
+      ballX = left + paddleW + ballR;
+      var hit = (ballY - (playerY + paddleH / 2)) / (paddleH / 2);
+      ballVX = Math.abs(ballVX) * 1.04;
+      ballVY = hit * 5.2;
+    }
+
+    var right = W - 28 - paddleW;
+    if (ballVX > 0 && ballX + ballR >= right && ballX < right + paddleW &&
+        ballY > cpuY && ballY < cpuY + paddleH) {
+      ballX = right - ballR;
+      var hitCpu = (ballY - (cpuY + paddleH / 2)) / (paddleH / 2);
+      ballVX = -Math.abs(ballVX) * 1.04;
+      ballVY = hitCpu * 5.2;
+    }
+
+    if (Math.abs(ballVX) > 11) ballVX = ballVX > 0 ? 11 : -11;
+
+    if (ballX < -20) point("cpu");
+    else if (ballX > W + 20) point("player");
+  }
+
+  function draw() {
+    ctx.fillStyle = "#10140f";
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.strokeStyle = "#2c4630";
+    ctx.lineWidth = 3;
+    ctx.setLineDash([10, 12]);
+    ctx.beginPath();
+    ctx.moveTo(W / 2, 16);
+    ctx.lineTo(W / 2, H - 16);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = "#d7f5c8";
+    ctx.fillRect(28, playerY, paddleW, paddleH);
+    ctx.fillRect(W - 28 - paddleW, cpuY, paddleW, paddleH);
+
+    ctx.beginPath();
+    ctx.arc(ballX, ballY, ballR, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.font = "28px ui-monospace, Consolas, monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(String(playerScore), W / 2 - 48, 44);
+    ctx.fillText(String(cpuScore), W / 2 + 48, 44);
+
+    ctx.font = "14px ui-monospace, Consolas, monospace";
+    if (!started && !over) {
+      ctx.fillText("click or press space", W / 2, H / 2 + 48);
+    } else if (over) {
+      var msg = playerScore > cpuScore ? "you win" : "cpu wins";
+      ctx.fillText(msg + "  ·  click to play again", W / 2, H / 2 + 48);
+    }
+  }
+
+  function frame() {
+    step();
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  function setPointer(clientY) {
+    var rect = canvas.getBoundingClientRect();
+    pointerY = (clientY - rect.top) * (H / rect.height);
+  }
+
+  canvas.addEventListener("pointermove", function (e) {
+    setPointer(e.clientY);
+  });
+  canvas.addEventListener("pointerdown", function (e) {
+    setPointer(e.clientY);
+    if (over) {
+      playerScore = 0;
+      cpuScore = 0;
+    }
+    if (!started) serve(Math.random() < 0.5 ? -1 : 1);
+  });
+  window.addEventListener("keydown", function (e) {
+    if (e.key === "ArrowUp") pointerY -= 22;
+    else if (e.key === "ArrowDown") pointerY += 22;
+    else if (e.code === "Space") {
+      e.preventDefault();
+      if (over) {
+        playerScore = 0;
+        cpuScore = 0;
+      }
+      if (!started) serve(-1);
+    }
+  });
+
+  frame();
+})();
+</script>
+</body>
+</html>
